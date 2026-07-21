@@ -1,0 +1,60 @@
+[package]
+name = "shimesu"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.94.1"
+description = "Self-hosted static publishing platform for AWS"
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/michidk/shimesu"
+homepage = "https://github.com/michidk/shimesu"
+keywords = ["aws", "cloudfront", "s3", "static", "publishing"]
+categories = ["command-line-utilities", "web-programming"]
+
+[[bin]]
+name = "shimesu"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4.5", features = ["derive", "env"] }
+
+tokio = { version = "1", features = ["full"] }
+futures = "0.3"
+
+aws-config = { version = "1.5", features = ["credentials-login"] }
+aws-sdk-cloudformation = "1.50"
+aws-sdk-sts = "1.50"
+aws-sdk-s3 = "1.122.0"
+aws-sdk-dynamodb = "1.50"
+aws-sdk-cloudfront = "1.50"
+aws-sdk-acm = "1.50"
+aws-sdk-route53 = "1.50"
+aws-smithy-runtime-api = "1"
+aws-smithy-types = "1"
+
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "1"
+
+thiserror = "2"
+anyhow = "1"
+
+indicatif = "0.18"
+owo-colors = "4"
+dialoguer = "0.12"
+
+chrono = { version = "0.4", features = ["serde"] }
+ulid = "3"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+zip = "8"
+walkdir = "2"
+mime_guess = "2"
+sha2 = "0.11"
+hex = "0.4"
+dirs = "6"
+tempfile = "3"
+
+[dev-dependencies]
+assert_cmd = "2"
+predicates = "3"

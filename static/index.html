@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#07110f">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%2307110f'/%3E%3Ccircle cx='32' cy='32' r='12' fill='%2372e6b3'/%3E%3C/svg%3E">
+  <meta name="description" content="shimesu is a self-hosted static publishing service running in your AWS account.">
+  <title>shimesu | Static publishing on your AWS</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --surface-primary: #07110f;
+      --surface-secondary: #0d1b17;
+      --surface-elevated: #132720;
+      --text-primary: #edf8f3;
+      --text-secondary: #a9beb5;
+      --text-tertiary: #789188;
+      --border-default: #28453b;
+      --border-subtle: #1a332b;
+      --accent-primary: #72e6b3;
+      --accent-hover: #9af0ca;
+      --accent-ink: #052118;
+      --status-success: #72e6b3;
+      --space-1: 4px;
+      --space-2: 8px;
+      --space-3: 12px;
+      --space-4: 16px;
+      --space-6: 24px;
+      --space-8: 32px;
+      --space-12: 48px;
+      --space-16: 64px;
+      --space-20: 80px;
+      --space-24: 96px;
+      --content: 1120px;
+      --sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      background: var(--surface-primary);
+      color: var(--text-primary);
+      font-family: var(--sans);
+      line-height: 1.65;
+      text-rendering: optimizeLegibility;
+    }
+    a { color: var(--accent-primary); text-underline-offset: var(--space-1); transition: color 150ms ease-out; }
+    a:hover { color: var(--accent-hover); }
+    a:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: var(--space-2); border-radius: var(--space-1); }
+    code { font-family: var(--mono); font-size: 0.875rem; color: var(--text-secondary); background: var(--surface-secondary); padding: 1px var(--space-2); border-radius: 3px; }
+    .skip-link {
+      position: fixed;
+      top: var(--space-3);
+      left: var(--space-3);
+      z-index: 2;
+      padding: var(--space-2) var(--space-3);
+      background: var(--accent-primary);
+      color: var(--accent-ink);
+      transform: translateY(-160%);
+    }
+    .skip-link:focus { transform: translateY(0); }
+    .shell { width: min(calc(100% - 40px), var(--content)); margin-inline: auto; }
+    nav {
+      min-height: 72px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .brand { color: var(--text-primary); font-weight: 700; letter-spacing: -0.03em; text-decoration: none; }
+    .nav-meta { color: var(--text-tertiary); font-family: var(--mono); font-size: 0.75rem; font-weight: 650; }
+    .nav-links { display: flex; align-items: center; gap: var(--space-6); }
+    .nav-links a { color: var(--text-secondary); font-size: 0.875rem; font-weight: 450; text-decoration: none; transition: color 150ms ease-out, transform 150ms ease-out; }
+    .nav-links a:hover { color: var(--accent-hover); transform: translateY(-1px); }
+    .hero {
+      min-height: calc(100dvh - 72px);
+      display: grid;
+      grid-template-columns: minmax(0, 7fr) minmax(280px, 5fr);
+      gap: var(--space-16);
+      align-items: center;
+      padding-block: var(--space-20);
+    }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+      margin-bottom: var(--space-8);
+      color: var(--text-secondary);
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      font-weight: 650;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--status-success); }
+    h1 {
+      max-width: 11ch;
+      margin: 0;
+      font-size: clamp(2.5rem, 7vw, 5.5rem);
+      font-weight: 650;
+      line-height: 0.98;
+      letter-spacing: -0.055em;
+    }
+    .lead { max-width: 54ch; margin: var(--space-8) 0 0; color: var(--text-secondary); font-size: 1.125rem; }
+    .domain { color: var(--accent-primary); }
+    .terminal {
+      border: 1px solid var(--border-default);
+      background: var(--surface-secondary);
+      padding: var(--space-4);
+      font-family: var(--mono);
+      font-size: 0.875rem;
+      overflow: hidden;
+    }
+    .terminal-label { margin: 0 0 var(--space-4); color: var(--text-tertiary); font-size: 0.75rem; }
+    pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--text-primary); font: inherit; }
+    .prompt { color: var(--accent-primary); }
+    .result { color: var(--text-tertiary); }
+    section { padding-block: var(--space-24); border-top: 1px solid var(--border-subtle); }
+    .section-grid { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); gap: var(--space-16); }
+    h2 { margin: 0; max-width: 12ch; font-size: 2.25rem; font-weight: 650; line-height: 1.1; letter-spacing: -0.035em; }
+    .section-copy { max-width: 68ch; color: var(--text-secondary); }
+    .steps { display: grid; gap: var(--space-12); }
+    .step { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: var(--space-6); }
+    .step-number {
+      display: grid;
+      place-items: center;
+      width: 40px;
+      height: 40px;
+      border: 1px solid var(--border-default);
+      color: var(--accent-primary);
+      font: 650 0.75rem var(--mono);
+    }
+    .step h3 { margin: 0 0 var(--space-2); font-size: 1.5rem; font-weight: 620; line-height: 1.25; }
+    .step p { margin: 0 0 var(--space-4); color: var(--text-secondary); }
+    .code {
+      border-left: 2px solid var(--accent-primary);
+      background: var(--surface-secondary);
+      padding: var(--space-4);
+      color: var(--text-primary);
+      font: 0.875rem/1.65 var(--mono);
+      white-space: pre-wrap;
+      overflow-x: auto;
+    }
+    .facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border: 1px solid var(--border-default); }
+    .fact { padding: var(--space-8); }
+    .fact:nth-child(odd) { border-right: 1px solid var(--border-default); }
+    .fact:nth-child(n+3) { border-top: 1px solid var(--border-default); }
+    .fact strong { display: block; margin-bottom: var(--space-2); color: var(--text-primary); }
+    .fact span { color: var(--text-secondary); }
+    footer { padding-block: var(--space-12); border-top: 1px solid var(--border-subtle); color: var(--text-tertiary); font-size: 0.875rem; }
+    .footer-row { display: flex; justify-content: space-between; gap: var(--space-6); }
+
+    @media (max-width: 767px) {
+      .shell { width: min(calc(100% - 32px), var(--content)); }
+      .hero { min-height: auto; grid-template-columns: 1fr; gap: var(--space-12); padding-block: var(--space-16); }
+      h1 { max-width: 9ch; }
+      .section-grid { grid-template-columns: 1fr; gap: var(--space-12); }
+      h2 { max-width: 16ch; }
+      section { padding-block: var(--space-16); }
+      .facts { grid-template-columns: 1fr; }
+      .fact:nth-child(odd) { border-right: 0; }
+      .fact:nth-child(n+2) { border-top: 1px solid var(--border-default); }
+      .footer-row { flex-direction: column; }
+      .nav-meta { display: none; }
+      .nav-links { gap: var(--space-4); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { transition-duration: 0.01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="shell">
+    <nav aria-label="Primary navigation">
+      <a class="brand" href="/">shimesu</a>
+      <div class="nav-links">
+        <a href="#operator-guide">Operator guide</a>
+        <a href="https://github.com/michidk/shimesu">GitHub</a>
+      </div>
+    </nav>
+  </header>
+
+  <main id="main">
+    <div class="shell hero">
+      <div>
+        <div class="status"><span class="status-dot" aria-hidden="true"></span>shimesu installation online</div>
+        <h1>Publish files. Keep the cloud.</h1>
+        <p class="lead">shimesu turns static files and directories into stable HTTPS site URLs inside your own AWS account.</p>
+      </div>
+      <div class="terminal" aria-label="Example deployment command">
+        <p class="terminal-label">A complete publish flow</p>
+        <pre><span class="prompt">$</span> shimesu publish ./pitch.html --yes
+
+<span class="result">deployed  pitch
+url       https://pitch.&lt;your-domain&gt;/</span></pre>
+      </div>
+    </div>
+
+    <section id="operator-guide">
+      <div class="shell section-grid">
+        <h2>Install and operate.</h2>
+        <div class="steps">
+          <article class="step">
+            <span class="step-number">01</span>
+            <div>
+              <h3>Install the CLI</h3>
+              <p>Install the published binary, then keep a source checkout nearby for the optional raw-template commands.</p>
+              <pre class="code">cargo install shimesu
+git clone https://github.com/michidk/shimesu.git</pre>
+            </div>
+          </article>
+          <article class="step">
+            <span class="step-number">02</span>
+            <div>
+              <h3>Issue the certificate</h3>
+              <p>Deploy the certificate stack in <code>us-east-1</code>, then feed its ACM ARN into the regional data-plane stack.</p>
+              <pre class="code">aws cloudformation deploy \
+  --template-file cli/templates/certificate.yaml \
+  --stack-name shimesu-certificate \
+  --parameter-overrides BaseDomain=static.example.com \
+  --region us-east-1</pre>
+            </div>
+          </article>
+          <article class="step">
+            <span class="step-number">03</span>
+            <div>
+              <h3>Create the regional stack</h3>
+              <p>Use the built-in helper for the regional data plane, then keep the installation up to date with the embedded template.</p>
+              <pre class="code">shimesu stack init \
+  --base-domain static.example.com \
+  --certificate-arn arn:aws:acm:us-east-1:ACCOUNT:certificate/ID
+shimesu stack update</pre>
+            </div>
+          </article>
+          <article class="step">
+            <span class="step-number">04</span>
+            <div>
+              <h3>Publish and manage</h3>
+              <p>A file becomes its site index. A directory keeps its safe relative tree, and every command can return machine-readable JSON.</p>
+              <pre class="code">shimesu status
+shimesu publish ./dist --site demo --yes
+shimesu site list --json
+shimesu site inspect demo --json
+shimesu site delete demo --yes</pre>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="shell section-grid">
+        <h2>Built for people and agents.</h2>
+        <div>
+          <p class="section-copy">Human output uses readable progress and confirmations. Automation gets stable JSON for successful results plus explicit non-interactive controls.</p>
+          <pre class="code">shimesu site list --json
+shimesu publish ./report --site weekly --yes --json
+shimesu site delete weekly --yes</pre>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="shell section-grid">
+        <h2>Small, private, and idle-friendly.</h2>
+        <div class="facts">
+          <div class="fact"><strong>Private storage</strong><span>S3 blocks public access and accepts reads only through CloudFront OAC.</span></div>
+          <div class="fact"><strong>HTTPS at the edge</strong><span>CloudFront and ACM serve the base domain and every site subdomain.</span></div>
+          <div class="fact"><strong>Typed metadata</strong><span>DynamoDB stores site identity and the current deployment receipt.</span></div>
+          <div class="fact"><strong>No server fleet</strong><span>There are no always-on containers, instances, or application servers.</span></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="shell footer-row">
+      <span>shimesu / self-hosted static publishing</span>
+      <span><a href="https://github.com/michidk/shimesu">github.com/michidk/shimesu</a></span>
+    </div>
+  </footer>
+</body>
+</html>

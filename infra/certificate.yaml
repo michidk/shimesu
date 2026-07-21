@@ -1,0 +1,50 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: shimesu CloudFront certificate in us-east-1
+
+Parameters:
+  InstallationStackName:
+    Type: String
+    Description: Regional shimesu stack name used for ownership tagging
+    AllowedPattern: '^[a-zA-Z][-a-zA-Z0-9]{0,127}$'
+  BaseDomain:
+    Type: String
+    Description: Base domain for published sites, for example pages.example.com
+    AllowedPattern: '^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$'
+    ConstraintDescription: Must be a lowercase DNS name such as pages.example.com
+  HostedZoneId:
+    Type: String
+    Default: ''
+    Description: Route 53 hosted zone ID for the base domain (e.g. Z2FDTNDATAQYW2). When set, CloudFormation creates the DNS validation record automatically. Leave empty to add the CNAME manually via your DNS provider.
+    AllowedPattern: '^(Z[0-9A-Z]{1,32})?$'
+    ConstraintDescription: Must be a Route 53 hosted zone ID starting with Z, or empty
+
+Conditions:
+  UseRoute53: !Not [!Equals [!Ref HostedZoneId, '']]
+
+Resources:
+  Certificate:
+    Type: AWS::CertificateManager::Certificate
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      DomainName: !Ref BaseDomain
+      SubjectAlternativeNames:
+        - !Sub '*.${BaseDomain}'
+      ValidationMethod: DNS
+      Tags:
+        - Key: Application
+          Value: shimesu
+        - Key: StackName
+          Value: !Ref InstallationStackName
+      DomainValidationOptions: !If
+        - UseRoute53
+        - - DomainName: !Ref BaseDomain
+            HostedZoneId: !Ref HostedZoneId
+          - DomainName: !Sub '*.${BaseDomain}'
+            HostedZoneId: !Ref HostedZoneId
+        - !Ref AWS::NoValue
+
+Outputs:
+  CertificateArn:
+    Description: ACM certificate ARN for the CloudFront distribution
+    Value: !Ref Certificate

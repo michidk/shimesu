@@ -1,0 +1,272 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: shimesu regional data plane and global CloudFront distribution
+
+Parameters:
+  BaseDomain:
+    Type: String
+    Description: Base domain for published projects, for example pages.example.com
+    AllowedPattern: '^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$'
+    ConstraintDescription: Must be a lowercase DNS name such as pages.example.com
+  CertificateArn:
+    Type: String
+    Description: ACM certificate ARN from us-east-1 covering the base domain and wildcard
+    AllowedPattern: '^arn:aws[a-zA-Z-]*:acm:us-east-1:[0-9]{12}:certificate/[0-9a-f-]+$'
+    ConstraintDescription: Must be an ACM certificate ARN from us-east-1
+  AttachAliases:
+    Type: String
+    Default: 'true'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    Description: Attach the base and wildcard aliases. Set false during distribution migration.
+  HostedZoneId:
+    Type: String
+    Default: ''
+    Description: Route 53 hosted zone ID for the base domain (e.g. Z2FDTNDATAQYW2). When set, DNS records pointing to CloudFront are created automatically. Leave empty to add records manually via your DNS provider.
+    AllowedPattern: '^(Z[0-9A-Z]{1,32})?$'
+    ConstraintDescription: Must be a Route 53 hosted zone ID starting with Z, or empty
+
+Conditions:
+  AttachCustomAliases: !Equals [!Ref AttachAliases, 'true']
+  UseRoute53: !Not [!Equals [!Ref HostedZoneId, '']]
+
+Resources:
+  ContentBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Application
+          Value: shimesu
+        - Key: StackName
+          Value: !Ref AWS::StackName
+
+  ContentOriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub '${AWS::StackName}-content-oac'
+        Description: Origin access control for the shared content bucket
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  HostRoutingFunction:
+    Type: AWS::CloudFront::Function
+    Properties:
+      Name: !Sub '${AWS::StackName}-host-routing'
+      AutoPublish: true
+      FunctionConfig:
+        Comment: Route base and site hosts to bucket prefixes
+        Runtime: cloudfront-js-2.0
+      FunctionCode: !Sub |
+        function handler(event) {
+          var request = event.request;
+          var baseDomain = '${BaseDomain}'.toLowerCase();
+          var hostHeader = request.headers.host;
+          var host = hostHeader && hostHeader.value ? hostHeader.value.toLowerCase() : '';
+          var colonIndex = host.indexOf(':');
+          var prefix = null;
+          var projectSuffix = '.' + baseDomain;
+          var slug;
+
+          if (colonIndex !== -1) {
+            host = host.slice(0, colonIndex);
+          }
+
+          if (host === baseDomain) {
+            prefix = '_shimesu';
+          } else if (
+            host.length > projectSuffix.length &&
+            host.slice(host.length - projectSuffix.length) === projectSuffix
+          ) {
+            slug = host.slice(0, host.length - projectSuffix.length);
+            if (slug && slug.indexOf('.') === -1) {
+              prefix = slug;
+            }
+          }
+
+          if (!prefix) {
+            return request;
+          }
+
+          if (request.uri === '/') {
+            request.uri = '/' + prefix + '/index.html';
+          } else {
+            request.uri = '/' + prefix + request.uri;
+            if (request.uri.endsWith('/')) {
+              request.uri += 'index.html';
+            }
+          }
+
+          return request;
+        }
+
+  Distribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        IPV6Enabled: true
+        Comment: !Sub 'shimesu shared distribution for ${BaseDomain}'
+        DefaultRootObject: index.html
+        Aliases: !If
+          - AttachCustomAliases
+          - - !Ref BaseDomain
+            - !Sub '*.${BaseDomain}'
+          - !Ref AWS::NoValue
+        Origins:
+          - Id: content-bucket-origin
+            DomainName: !GetAtt ContentBucket.RegionalDomainName
+            OriginAccessControlId: !Ref ContentOriginAccessControl
+            S3OriginConfig:
+              OriginAccessIdentity: ''
+        DefaultCacheBehavior:
+          TargetOriginId: content-bucket-origin
+          ViewerProtocolPolicy: redirect-to-https
+          Compress: true
+          AllowedMethods:
+            - GET
+            - HEAD
+          CachedMethods:
+            - GET
+            - HEAD
+          # Managed-CachingOptimized: same well-known ID in every AWS account
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+          FunctionAssociations:
+            - EventType: viewer-request
+              FunctionARN: !GetAtt HostRoutingFunction.FunctionARN
+        CustomErrorResponses:
+          - ErrorCode: 403
+            ResponseCode: 404
+            ResponsePagePath: /_shimesu/404.html
+            ErrorCachingMinTTL: 60
+          - ErrorCode: 404
+            ResponseCode: 404
+            ResponsePagePath: /_shimesu/404.html
+            ErrorCachingMinTTL: 60
+        PriceClass: PriceClass_100
+        ViewerCertificate:
+          AcmCertificateArn: !Ref CertificateArn
+          SslSupportMethod: sni-only
+          MinimumProtocolVersion: TLSv1.2_2021
+      Tags:
+        - Key: Application
+          Value: shimesu
+        - Key: StackName
+          Value: !Ref AWS::StackName
+
+  ContentBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ContentBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowCloudFrontReadOnlyViaOAC
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub '${ContentBucket.Arn}/*'
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub 'arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${Distribution}'
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: '*'
+            Action: 's3:*'
+            Resource:
+              - !GetAtt ContentBucket.Arn
+              - !Sub '${ContentBucket.Arn}/*'
+            Condition:
+              Bool:
+                aws:SecureTransport: 'false'
+
+  DnsRecords:
+    Type: AWS::Route53::RecordSetGroup
+    Condition: UseRoute53
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      RecordSets:
+        - Name: !Ref BaseDomain
+          Type: A
+          AliasTarget:
+            DNSName: !GetAtt Distribution.DomainName
+            HostedZoneId: Z2FDTNDATAQYW2
+            EvaluateTargetHealth: false
+        - Name: !Ref BaseDomain
+          Type: AAAA
+          AliasTarget:
+            DNSName: !GetAtt Distribution.DomainName
+            HostedZoneId: Z2FDTNDATAQYW2
+            EvaluateTargetHealth: false
+        - Name: !Sub '*.${BaseDomain}'
+          Type: A
+          AliasTarget:
+            DNSName: !GetAtt Distribution.DomainName
+            HostedZoneId: Z2FDTNDATAQYW2
+            EvaluateTargetHealth: false
+        - Name: !Sub '*.${BaseDomain}'
+          Type: AAAA
+          AliasTarget:
+            DNSName: !GetAtt Distribution.DomainName
+            HostedZoneId: Z2FDTNDATAQYW2
+            EvaluateTargetHealth: false
+
+  ProjectsTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: !Sub '${AWS::StackName}-projects'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: slug
+          AttributeType: S
+      KeySchema:
+        - AttributeName: slug
+          KeyType: HASH
+      Tags:
+        - Key: Application
+          Value: shimesu
+        - Key: StackName
+          Value: !Ref AWS::StackName
+
+Outputs:
+  BucketName:
+    Description: Name of the private content bucket
+    Value: !Ref ContentBucket
+  BucketArn:
+    Description: ARN of the private content bucket
+    Value: !GetAtt ContentBucket.Arn
+  DistributionId:
+    Description: CloudFront distribution ID
+    Value: !Ref Distribution
+  DistributionDomainName:
+    Description: CloudFront distribution domain name
+    Value: !GetAtt Distribution.DomainName
+  TableName:
+    Description: DynamoDB table name for site metadata
+    Value: !Ref ProjectsTable
+  TableArn:
+    Description: DynamoDB table ARN for site metadata
+    Value: !GetAtt ProjectsTable.Arn
+  BaseDomain:
+    Description: Base domain used for site publishing
+    Value: !Ref BaseDomain
+  CertificateArn:
+    Description: ACM certificate ARN used by CloudFront
+    Value: !Ref CertificateArn

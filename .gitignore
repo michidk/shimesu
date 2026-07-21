@@ -1,0 +1,32 @@
+# Rust build and tooling output
+/target/
+**/*.rs.bk
+*.profraw
+/coverage/
+/lcov.info
+
+# Local agent and browser state
+/.codegraph/
+/.codex/
+/.omo/
+/.opencode/
+.env
+.env.*
+!.env.example
+/.playwright-mcp/
+/.shimesu/
+*.log
+*.tmp
+
+# Local QA artifacts
+/shimesu-desktop-*.png
+*:Zone.Identifier
+
+# Operating systems and editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
