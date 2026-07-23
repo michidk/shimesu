@@ -11,8 +11,8 @@ pub struct Cli {
     #[arg(long, global = true, env = "AWS_PROFILE")]
     pub profile: Option<String>,
 
-    /// AWS region override (falls back to AWS_REGION, AWS_DEFAULT_REGION, or the active profile)
-    #[arg(long, global = true, env = "AWS_REGION", hide_env = true)]
+    /// AWS region override (falls back to AWS_REGION, then AWS_DEFAULT_REGION, or the active profile)
+    #[arg(long, global = true)]
     pub region: Option<String>,
 
     /// Output JSON instead of human-readable text
