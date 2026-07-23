@@ -1,8 +1,8 @@
 # shimesu
 
-![shimesu static publishing overview](https://raw.githubusercontent.com/michidk/shimesu/main/.github/images/hero.png)
+![shimesu hero image](https://raw.githubusercontent.com/michidk/shimesu/main/.github/images/hero.png)
 
-**shimesu** (示す, "to show") is an open-source, self-hosted static publishing platform for AWS. The `shimesu` CLI publishes a file, directory, or zip archive to a stable HTTPS site subdomain while the AWS account, domain, content, and bill remain yours.
+**shimesu** (示す, "to show") is an open-source, self-hosted static publishing platform for AWS, built for AI-generated artifacts. When an AI agent produces a report, presentation, plan, visualization, or any static output, one command gives it a stable HTTPS URL — while the AWS account, domain, content, and bill remain yours.
 
 ```console
 $ shimesu publish ./report.html --yes
@@ -14,6 +14,8 @@ Uploaded: 1
 Skipped: 0
 Deleted: 0
 ```
+
+Typical artifacts: AI-generated reports and dashboards, slide decks, data visualizations, Markdown documents, personal sites, and arbitrary static assets. Every command is non-interactive and machine-readable by design, so AI agents can publish, inspect, and remove sites without human intervention.
 
 There is no hosted control plane, application server, build service, or required third-party runtime. The CLI uses the standard AWS credential provider chain and calls AWS APIs directly.
 
@@ -120,83 +122,6 @@ shimesu stack init \
 ```
 
 Omit `--hosted-zone-id` for externally managed DNS. After the stack is created, the CLI prints the exact CNAME records for the base domain and wildcard subdomains. JSON output includes `distribution_domain_name` and a `dns_records` array with each record's `name`, `type`, and `value`.
-
-### Manual CloudFormation fallback
-
-The raw templates remain available for recovery and controlled migrations. Run these commands from a source checkout of the same version as the CLI. Deploy `infra/certificate.yaml` in `us-east-1`, wait for issuance, and pass its `CertificateArn` output to the regional template:
-
-```bash
-aws cloudformation deploy \
-  --template-file infra/certificate.yaml \
-  --stack-name shimesu-certificate \
-  --parameter-overrides \
-    InstallationStackName=shimesu \
-    BaseDomain=static.example.com \
-    HostedZoneId=Z1234567890EXAMPLE \
-  --tags Application=shimesu StackName=shimesu \
-  --region us-east-1
-
-aws cloudformation deploy \
-  --template-file infra/stack.yaml \
-  --stack-name shimesu \
-  --parameter-overrides \
-    BaseDomain=static.example.com \
-    CertificateArn=arn:aws:acm:us-east-1:123456789012:certificate/EXAMPLE \
-    HostedZoneId=Z1234567890EXAMPLE \
-  --tags Application=shimesu StackName=shimesu \
-  --region eu-central-1
-```
-
-For external DNS, start the certificate stack without `HostedZoneId`, obtain the validation CNAME from ACM, create that record at the DNS provider, and then wait for the stack to finish:
-
-```bash
-aws cloudformation create-stack \
-  --template-body file://infra/certificate.yaml \
-  --stack-name shimesu-certificate \
-  --parameters \
-    ParameterKey=InstallationStackName,ParameterValue=shimesu \
-    ParameterKey=BaseDomain,ParameterValue=static.example.com \
-  --tags \
-    Key=Application,Value=shimesu \
-    Key=StackName,Value=shimesu \
-  --region us-east-1
-
-# Run after CloudFormation lists the Certificate resource.
-CERTIFICATE_ARN=$(aws cloudformation list-stack-resources \
-  --stack-name shimesu-certificate \
-  --region us-east-1 \
-  --query 'StackResourceSummaries[?LogicalResourceId==`Certificate`].PhysicalResourceId' \
-  --output text)
-
-aws acm describe-certificate \
-  --certificate-arn "$CERTIFICATE_ARN" \
-  --region us-east-1 \
-  --query 'Certificate.DomainValidationOptions[].ResourceRecord.[Name,Type,Value]' \
-  --output table
-
-aws cloudformation wait stack-create-complete \
-  --stack-name shimesu-certificate \
-  --region us-east-1
-```
-
-After adding the displayed validation CNAME and certificate issuance completes, deploy the regional template as above while omitting `HostedZoneId`, then create the two final CloudFront CNAMEs shown below.
-
-With external DNS, point both names at the `DistributionDomainName` output:
-
-```bash
-aws cloudformation describe-stacks \
-  --stack-name shimesu \
-  --region eu-central-1 \
-  --query 'Stacks[0].Outputs[?OutputKey==`DistributionDomainName`].OutputValue' \
-  --output text
-```
-
-| Name | Type | Value |
-| --- | --- | --- |
-| `static.example.com.` | `CNAME` | `EXAMPLE.cloudfront.net.` |
-| `*.static.example.com.` | `CNAME` | `EXAMPLE.cloudfront.net.` |
-
-`AttachAliases=false` exists only for controlled CloudFront migration work. Normal installations should keep its default value of `true`.
 
 ### Verify the installation
 
@@ -329,6 +254,30 @@ Stored timestamps and JSON timestamps use UTC and ISO 8601. JSON field meanings 
 
 There are no NAT gateways, compute instances, containers, provisioned databases, or always-on workers. Idle cost is therefore near zero, but it is not guaranteed to be exactly zero. S3 versions, CloudFront requests and transfer, DynamoDB use, and optional Route 53 remain billable.
 
+### Cost estimate
+
+All figures are approximate US East pricing as of 2025. Your region and usage will vary.
+
+Route 53 DNS automation is optional. If you manage DNS externally, shimesu prints the two CNAME records to create and requires no Route 53 access at all.
+
+| Scenario | Estimated monthly cost | What drives it |
+| --- | --- | --- |
+| **Idle** — stack deployed, no visitors, external DNS | ~$0 | Nothing runs at rest; all billing follows actual usage |
+| **Idle** — stack deployed, no visitors, Route 53 DNS | ~$0.50 | Route 53 hosted zone fee ($0.50/zone) |
+| **Light** — a few sites, hundreds of requests/day, ~1 GB transfer | ~$1–3 | CloudFront transfer ($0.085/GB), requests, optional Route 53 queries |
+| **Active** — multiple sites, thousands of requests/day, ~10 GB transfer | ~$5–15 | CloudFront transfer and request volume dominate |
+
+Key line items:
+
+- **Route 53** — $0.50/hosted zone/month + $0.40/million DNS queries; only applies when `--hosted-zone-id` is used
+- **CloudFront data transfer** — $0.085/GB (first 10 TB/month); requests $0.0075/10,000 HTTPS requests
+- **CloudFront Function** — $0.10/million invocations (one invocation per CDN request)
+- **S3 storage** — $0.023/GB/month; GET requests from CloudFront $0.0004/1,000
+- **DynamoDB** — effectively zero for typical site-metadata reads and writes at PAY_PER_REQUEST rates
+- **ACM certificate** — free
+
+New AWS accounts receive a CloudFront free tier for the first 12 months (1 TB transfer and 10 million requests/month). There is no free tier for Route 53 hosted zones.
+
 ## Security and data model
 
 - S3 public-access blocking is enabled in all four modes.
@@ -394,6 +343,19 @@ If you prefer to perform each step manually:
 7. Remove externally managed DNS records if CloudFormation did not own them.
 
 `stack destroy` removes the regional CloudFormation stack but does not remove retained data or certificate resources. A managed `<stack>-certificate` stack and ACM certificate remain eligible for verified teardown; an override certificate remains operator-owned. Permanent cleanup remains deliberately manual and explicit unless `stack teardown --confirm-data-loss` is used.
+
+## AI agent usage
+
+A `SKILL.md` is included in the repository root. It teaches AI agents (Claude, GPT, and compatible assistants running [opencode](https://opencode.ai) or a compatible agent framework) how to use the full shimesu CLI — publishing, site management, stack operations, and diagnostics.
+
+Install the skill once per machine:
+
+```bash
+mkdir -p ~/.agents/skills/shimesu
+cp SKILL.md ~/.agents/skills/shimesu/SKILL.md
+```
+
+After installation, load it in any agent session with `/shimesu` or by asking your agent to publish a file. The skill covers the complete command surface, JSON output shapes, slug derivation rules, confirmation flags, and common error recovery.
 
 ## Development
 
