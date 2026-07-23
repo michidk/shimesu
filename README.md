@@ -71,7 +71,6 @@ The S3 bucket is not public. CloudFront can read it only through Origin Access C
 - A base domain such as `static.example.com` (normalized to lowercase automatically)
 - Control of either a matching Route 53 hosted zone or an external DNS provider
 - Rust 1.94.1 or newer
-- AWS CLI v2 only if you want to run the raw CloudFormation examples below instead of the built-in `shimesu stack init` workflow
 
 
 ## Install the CLI
@@ -93,7 +92,7 @@ cargo install --path cli
 
 ## Provision an installation
 
-Use `eu-central-1` unless you deliberately want another data region. One command creates or resumes the certificate stack in `us-east-1`, waits for certificate issuance, and then creates the regional data plane:
+One command creates or resumes the certificate stack in `us-east-1` (required by CloudFront — this is an AWS constraint, not a choice), waits for certificate issuance, and then creates the data plane in your chosen region:
 
 ```bash
 shimesu stack init --domain static.example.com
