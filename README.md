@@ -95,7 +95,7 @@ cargo install --path cli
 One command creates or resumes the certificate stack in `us-east-1` (required by CloudFront — this is an AWS constraint, not a choice), waits for certificate issuance, and then creates the data plane in your chosen region:
 
 ```bash
-shimesu stack init --domain static.example.com
+shimesu stack init --domain static.example.com --region eu-central-1
 ```
 
 The managed certificate stack is named `<stack-name>-certificate`. Repeated invocations reuse it when its `BaseDomain` matches. If certificate validation is still in progress, rerunning the command resumes the same stack instead of requesting another certificate.
@@ -140,12 +140,12 @@ shimesu stack update
 
 ## Configure the CLI
 
-The optional configuration file is `~/.config/shimesu/config.toml`:
+Rather than passing `--region` (and `--stack`, `--profile`) on every command, set them once in the optional configuration file at `~/.config/shimesu/config.toml`:
 
 ```toml
 [installation]
 stack_name = "shimesu"
-region = "eu-central-1"
+region = "eu-central-1"   # your data-plane region
 # profile = "my-profile"
 ```
 
