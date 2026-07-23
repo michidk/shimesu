@@ -49,10 +49,7 @@ fn resolve_config(cli: &crate::cli::Cli, file_config: ConfigFile) -> Config {
         .or(file_config.installation.stack_name)
         .unwrap_or_else(|| Config::DEFAULT_STACK_NAME.to_string());
 
-    let region = cli
-        .region
-        .clone()
-        .or(file_config.installation.region);
+    let region = cli.region.clone().or(file_config.installation.region);
 
     let profile = cli
         .profile
