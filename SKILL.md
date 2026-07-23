@@ -30,16 +30,16 @@ Optional config file: `~/.config/shimesu/config.toml`
 ```toml
 [installation]
 stack_name = "shimesu"    # also: env var SHIMESU_STACK
-region     = "eu-central-1"
+region     = "eu-central-1"  # set explicitly; omit to let AWS SDK resolve from environment
 # profile  = "my-profile"
 ```
 
-Precedence: **CLI flag > env var > config file > default**.
+Precedence: **CLI flag > config file > AWS SDK environment resolution**.
 
-| Setting | Flag | Env var | Default |
+| Setting | Flag | Env var | Fallback |
 |---|---|---|---|
 | Stack name | `--stack` | `SHIMESU_STACK` | `shimesu` |
-| Region | `--region` | `AWS_REGION`, `AWS_DEFAULT_REGION` | `eu-central-1` |
+| Region | `--region` | — | AWS SDK chain (`AWS_REGION`, profile, etc.) |
 | Profile | `--profile` | `AWS_PROFILE` | AWS provider-chain default |
 
 ## Global flags

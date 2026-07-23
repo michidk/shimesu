@@ -19,23 +19,18 @@ Typical artifacts: AI-generated reports and dashboards, slide decks, data visual
 
 There is no hosted control plane, application server, build service, or required third-party runtime. The CLI uses the standard AWS credential provider chain and calls AWS APIs directly.
 
-## Current status
+## Commands
 
-shimesu is a v0.x, single-operator MVP. The CLI is intended for one operator or trusted AWS environment, and breaking changes may occur before a 1.0 release. The implemented commands are:
-
-- `shimesu status`
-- `shimesu stack init --domain <domain>`
-- `shimesu stack status`
-- `shimesu stack update`
-- `shimesu stack destroy --confirm`
-- `shimesu stack teardown --confirm-data-loss`
-- `shimesu doctor`
-- `shimesu publish <path>`
-- `shimesu site list`
-- `shimesu site inspect <slug>`
-- `shimesu site delete <slug>`
-
-Earlier pre-release command names are not retained as aliases. A first publish creates the DynamoDB site record and later publishes update it. There is no separate `site create` command and no deployment-history command. Traffic analytics, rollback automation, custom per-site domains, dynamic application hosting, and a web dashboard are not implemented.
+- `shimesu publish <path>` — publish a file, directory, or zip archive to a site
+- `shimesu site list` — list all sites
+- `shimesu site inspect <slug>` — show site details and canonical URL
+- `shimesu site delete <slug>` — remove a site and its files
+- `shimesu status` / `shimesu stack status` — show stack health and outputs
+- `shimesu doctor` — verify credentials, stack, S3, and DynamoDB
+- `shimesu stack init --domain <domain>` — provision a new installation
+- `shimesu stack update` — apply the current template to an existing stack
+- `shimesu stack destroy --confirm` — delete the regional stack (retains data)
+- `shimesu stack teardown --confirm-data-loss` — permanently remove all installation resources
 
 ## Architecture
 
@@ -46,7 +41,7 @@ us-east-1
 └── shimesu-certificate
     └── ACM certificate for the base domain and wildcard
 
-eu-central-1 by default
+your chosen region (e.g. eu-central-1)
 └── shimesu
     ├── private, encrypted, versioned S3 bucket
     ├── shared CloudFront distribution with OAC
@@ -54,7 +49,7 @@ eu-central-1 by default
     └── DynamoDB site table using PAY_PER_REQUEST
 ```
 
-CloudFront requires its ACM certificate in `us-east-1`. Stateful content and metadata live in the selected regional stack, which defaults to `eu-central-1`.
+CloudFront requires its ACM certificate in `us-east-1`. Stateful content and metadata live in the regional stack you deploy to.
 
 The CloudFront Function maps site hosts to private S3 prefixes:
 
@@ -149,12 +144,12 @@ region = "eu-central-1"   # your data-plane region
 # profile = "my-profile"
 ```
 
-Precedence is CLI flag, environment variable, config file, then hardcoded default.
+Precedence is CLI flag, config file, then AWS SDK environment resolution.
 
-| Setting | Flag | Environment variable | Default |
+| Setting | Flag | Env var | Fallback |
 | --- | --- | --- | --- |
 | Stack | `--stack` | `SHIMESU_STACK` | `shimesu` |
-| Region | `--region` | `AWS_REGION`, then `AWS_DEFAULT_REGION` | `eu-central-1` |
+| Region | `--region` | — | AWS SDK chain (`AWS_REGION`, profile, etc.) |
 | Profile | `--profile` | `AWS_PROFILE` | AWS provider-chain default |
 
 The CLI never stores access keys or session tokens.
@@ -176,8 +171,6 @@ The CLI uses a small set of direct AWS API calls. The required IAM actions per c
 | `shimesu site list` | `cloudformation:DescribeStacks`, `dynamodb:Scan` | Reads the table name from stack outputs, then scans site metadata. |
 | `shimesu site inspect <slug>` | `cloudformation:DescribeStacks`, `dynamodb:GetItem` | Reads one site record and reconstructs the canonical URL from the base domain output. |
 | `shimesu site delete <slug>` | `cloudformation:DescribeStacks`, `dynamodb:DeleteItem`, `s3:ListBucket`, `s3:DeleteObject`, `cloudfront:CreateInvalidation` | `CreateInvalidation` is skipped when `--keep-files` is used. |
-
-If you use the raw AWS CLI flows in this README instead of the built-in `shimesu stack init` and `shimesu stack update` commands, add the CloudFormation change-set and template-inspection permissions used by `aws cloudformation deploy`: `cloudformation:CreateChangeSet`, `cloudformation:DescribeChangeSet`, `cloudformation:ExecuteChangeSet`, `cloudformation:DeleteChangeSet`, `cloudformation:ListStackResources`, `cloudformation:GetTemplateSummary`, and `cloudformation:ValidateTemplate`.
 
 ## Publish content
 
