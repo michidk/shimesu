@@ -10,7 +10,7 @@ use serde_json::json;
 fn test_config() -> Config {
     Config {
         stack_name: "test-stack".to_string(),
-        region: "us-east-1".to_string(),
+        region: Some("us-east-1".to_string()),
         profile: None,
         json: false,
         yes: false,

@@ -12,7 +12,7 @@ use crate::error::ShimesuError;
 fn config() -> Config {
     Config {
         stack_name: "shimesu-demo".to_string(),
-        region: "eu-central-1".to_string(),
+        region: Some("eu-central-1".to_string()),
         profile: None,
         json: false,
         yes: false,

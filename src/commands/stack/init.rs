@@ -71,7 +71,7 @@ impl StackInitOutput {
 
         Self {
             stack_name: config.stack_name.clone(),
-            region: config.region.clone(),
+            region: config.region.as_deref().unwrap_or("auto").to_string(),
             base_domain: outputs.base_domain,
             bucket_name: outputs.bucket_name,
             table_name: outputs.table_name,

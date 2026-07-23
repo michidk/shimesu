@@ -132,7 +132,7 @@ pub(super) fn certificate_stack_name(stack_name: &str) -> Result<String> {
 pub(super) fn certificate_config(config: &Config) -> Config {
     Config {
         stack_name: config.stack_name.clone(),
-        region: CERTIFICATE_REGION.to_string(),
+        region: Some(CERTIFICATE_REGION.to_string()),
         profile: config.profile.clone(),
         json: config.json,
         yes: config.yes,

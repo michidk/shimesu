@@ -32,8 +32,12 @@ pub fn marker_key(slug: &str) -> String {
 }
 
 pub(crate) fn aws_sdk_config_loader(config: &Config) -> aws_config::ConfigLoader {
-    let loader = aws_config::defaults(BehaviorVersion::latest())
-        .region(aws_config::Region::new(config.region.clone()));
+    let loader = aws_config::defaults(BehaviorVersion::latest());
+
+    let loader = match &config.region {
+        Some(region) => loader.region(aws_config::Region::new(region.clone())),
+        None => loader,
+    };
 
     match &config.profile {
         Some(profile) => loader.profile_name(profile),

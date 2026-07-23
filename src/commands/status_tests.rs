@@ -55,7 +55,7 @@ fn parse_required_stack_outputs_returns_all_required_values_when_complete() {
 fn build_status_output_preserves_existing_shape_when_outputs_are_complete() {
     let config = Config {
         stack_name: "shimesu-prod".to_string(),
-        region: "us-east-1".to_string(),
+        region: Some("us-east-1".to_string()),
         profile: Some("team".to_string()),
         json: false,
         yes: false,

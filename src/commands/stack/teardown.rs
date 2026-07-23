@@ -144,7 +144,7 @@ pub async fn run_stack_teardown(
 
     let teardown_output = StackTeardownOutput {
         stack_name: config.stack_name.clone(),
-        region: config.region.clone(),
+        region: config.region.as_deref().unwrap_or("auto").to_string(),
         regional_stack_deleted,
         buckets_deleted: bucket_stats.buckets_deleted,
         object_versions_deleted: bucket_stats.object_versions_deleted,

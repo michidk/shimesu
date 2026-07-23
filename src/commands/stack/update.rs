@@ -86,7 +86,7 @@ pub async fn run_stack_update(config: &Config, output: &Output) -> Result<()> {
 
     let update_output = StackUpdateOutput {
         stack_name: config.stack_name.clone(),
-        region: config.region.clone(),
+        region: config.region.as_deref().unwrap_or("auto").to_string(),
         updated: outcome == UpdateRequestOutcome::Started,
         already_up_to_date: outcome == UpdateRequestOutcome::AlreadyUpToDate,
     };

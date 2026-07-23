@@ -31,7 +31,7 @@ impl StackDestroyOutput {
         let deleted = matches!(delete_outcome, DeleteRequestOutcome::Started);
         Self {
             stack_name: config.stack_name.clone(),
-            region: config.region.clone(),
+            region: config.region.as_deref().unwrap_or("auto").to_string(),
             deleted,
             already_absent: !deleted,
             retained_data: true,

@@ -23,7 +23,7 @@ pub struct InstallationConfig {
 pub struct Config {
     pub stack_name: String,
 
-    pub region: String,
+    pub region: Option<String>,
 
     pub profile: Option<String>,
 
@@ -34,8 +34,6 @@ pub struct Config {
 
 impl Config {
     pub const DEFAULT_STACK_NAME: &'static str = "shimesu";
-
-    pub const DEFAULT_REGION: &'static str = "eu-central-1";
 
     pub fn load(cli: &crate::cli::Cli) -> Result<Self> {
         let file_config = load_config_file()?;
@@ -54,10 +52,7 @@ fn resolve_config(cli: &crate::cli::Cli, file_config: ConfigFile) -> Config {
     let region = cli
         .region
         .clone()
-        .or_else(|| std::env::var("AWS_REGION").ok())
-        .or_else(|| std::env::var("AWS_DEFAULT_REGION").ok())
-        .or(file_config.installation.region)
-        .unwrap_or_else(|| Config::DEFAULT_REGION.to_string());
+        .or(file_config.installation.region);
 
     let profile = cli
         .profile
@@ -266,18 +261,16 @@ stack_name = "my-stack"
         );
 
         assert_eq!(config.stack_name, "cli-stack");
-        assert_eq!(config.region, "ap-southeast-2");
+        assert_eq!(config.region, Some("ap-southeast-2".to_string()));
         assert_eq!(config.profile.as_deref(), Some("cli-profile"));
         assert!(config.json);
         assert!(config.yes);
     }
 
     #[test]
-    fn test_env_values_override_file_values() {
+    fn test_file_region_used_when_no_cli_override() {
         let _env_guard = env_lock().lock().expect("env mutex should lock");
         let _stack = EnvGuard::set("SHIMESU_STACK", "env-stack");
-        let _region = EnvGuard::set("AWS_DEFAULT_REGION", "eu-central-1");
-        let _aws_region = EnvGuard::unset("AWS_REGION");
         let _profile = EnvGuard::set("AWS_PROFILE", "env-profile");
 
         let config = resolve_config(
@@ -292,12 +285,12 @@ stack_name = "my-stack"
         );
 
         assert_eq!(config.stack_name, "env-stack");
-        assert_eq!(config.region, "eu-central-1");
+        assert_eq!(config.region, Some("us-west-1".to_string()));
         assert_eq!(config.profile.as_deref(), Some("env-profile"));
     }
 
     #[test]
-    fn test_defaults_apply_when_no_other_sources_exist() {
+    fn test_region_is_none_when_not_explicitly_set() {
         let _env_guard = env_lock().lock().expect("env mutex should lock");
         let _stack = EnvGuard::unset("SHIMESU_STACK");
         let _region = EnvGuard::unset("AWS_REGION");
@@ -307,7 +300,7 @@ stack_name = "my-stack"
         let config = resolve_config(&test_cli(), ConfigFile::default());
 
         assert_eq!(config.stack_name, Config::DEFAULT_STACK_NAME);
-        assert_eq!(config.region, Config::DEFAULT_REGION);
+        assert!(config.region.is_none());
         assert!(config.profile.is_none());
         assert!(!config.json);
         assert!(!config.yes);
