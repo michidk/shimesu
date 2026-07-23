@@ -242,7 +242,7 @@ stack_name = "my-stack"
 
     #[test]
     fn test_cli_values_override_env_and_file_values() {
-        let env_guard = env_lock().lock().expect("env mutex should lock");
+        let _env_guard = env_lock().lock().expect("env mutex should lock");
         let _stack = EnvGuard::set("SHIMESU_STACK", "env-stack");
         let _region = EnvGuard::set("AWS_REGION", "eu-west-1");
         let _profile = EnvGuard::set("AWS_PROFILE", "env-profile");
@@ -265,8 +265,6 @@ stack_name = "my-stack"
             },
         );
 
-        drop(env_guard);
-
         assert_eq!(config.stack_name, "cli-stack");
         assert_eq!(config.region, "ap-southeast-2");
         assert_eq!(config.profile.as_deref(), Some("cli-profile"));
@@ -276,7 +274,7 @@ stack_name = "my-stack"
 
     #[test]
     fn test_env_values_override_file_values() {
-        let env_guard = env_lock().lock().expect("env mutex should lock");
+        let _env_guard = env_lock().lock().expect("env mutex should lock");
         let _stack = EnvGuard::set("SHIMESU_STACK", "env-stack");
         let _region = EnvGuard::set("AWS_DEFAULT_REGION", "eu-central-1");
         let _aws_region = EnvGuard::unset("AWS_REGION");
@@ -293,8 +291,6 @@ stack_name = "my-stack"
             },
         );
 
-        drop(env_guard);
-
         assert_eq!(config.stack_name, "env-stack");
         assert_eq!(config.region, "eu-central-1");
         assert_eq!(config.profile.as_deref(), Some("env-profile"));
@@ -302,15 +298,13 @@ stack_name = "my-stack"
 
     #[test]
     fn test_defaults_apply_when_no_other_sources_exist() {
-        let env_guard = env_lock().lock().expect("env mutex should lock");
+        let _env_guard = env_lock().lock().expect("env mutex should lock");
         let _stack = EnvGuard::unset("SHIMESU_STACK");
         let _region = EnvGuard::unset("AWS_REGION");
         let _default_region = EnvGuard::unset("AWS_DEFAULT_REGION");
         let _profile = EnvGuard::unset("AWS_PROFILE");
 
         let config = resolve_config(&test_cli(), ConfigFile::default());
-
-        drop(env_guard);
 
         assert_eq!(config.stack_name, Config::DEFAULT_STACK_NAME);
         assert_eq!(config.region, Config::DEFAULT_REGION);
