@@ -47,12 +47,12 @@ chrono = { version = "0.4", features = ["serde"] }
 ulid = "3"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-zip = "8"
+zip = "9"
 walkdir = "2"
 mime_guess = "2"
 sha2 = "0.11"
 hex = "0.4"
-dirs = "6"
+dirs = "7"
 tempfile = "3"
 
 [dev-dependencies]
