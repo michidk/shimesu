@@ -120,7 +120,10 @@ fn validate_zip_with_limits<R: std::io::Read + std::io::Seek>(
             ShimesuError::Generic(format!("Failed to read zip entry: {}", error))
         })?;
 
-        let name = file.name();
+        let name = file.name().map_err(|error| {
+            ShimesuError::Validation(format!("Zip entry has an invalid name: {}", error))
+        })?;
+        let name = name.as_ref();
         if name.starts_with('/') || name.starts_with('\\') {
             return Err(ShimesuError::Validation(format!(
                 "Zip entry has absolute path: {}",

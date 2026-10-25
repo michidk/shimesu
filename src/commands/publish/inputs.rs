@@ -178,7 +178,12 @@ fn prepare_zip_with_limit(
         }
         let relative = entry
             .enclosed_name()
-            .ok_or_else(|| ShimesuError::Validation(format!("Unsafe zip entry: {}", entry.name())))?
+            .ok_or_else(|| {
+                ShimesuError::Validation(format!(
+                    "Unsafe zip entry: {}",
+                    String::from_utf8_lossy(entry.name_raw())
+                ))
+            })?
             .to_path_buf();
         validate_path(&relative)?;
         let destination = staging.path().join(&relative);
