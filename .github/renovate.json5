@@ -14,7 +14,8 @@
         "cargo"
       ],
       "groupName": "Cargo dependencies",
-      "groupSlug": "cargo-deps"
+      "groupSlug": "cargo-deps",
+      "rangeStrategy": "pin"
     }
   ]
 }
