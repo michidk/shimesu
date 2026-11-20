@@ -1,8 +1,12 @@
 # shimesu
 
-![shimesu hero image](https://raw.githubusercontent.com/michidk/shimesu/main/.github/images/hero.png)
-
 **shimesu** (示す, "to show") is an open-source, self-hosted static publishing platform for AWS, built for AI-generated artifacts. When an AI agent produces a report, presentation, plan, visualization, or any static output, one command gives it a stable HTTPS URL — while the AWS account, domain, content, and bill remain yours.
+
+<p align="center"><a href="#install-the-cli">Install</a> · <a href="#provision-an-installation">Provision</a> · <a href="#publish-content">Publish</a> · <a href="#aws-resources-and-cost">Costs</a></p>
+
+<p align="center"><a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license"></a></p>
+
+<p align="center"><img src=".github/images/hero.png" width="800" alt="Shimesu static publishing illustration"></p>
 
 ```console
 $ shimesu publish ./report.html --yes
